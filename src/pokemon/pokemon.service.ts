@@ -5,6 +5,8 @@ import { Pokemon } from './entities/pokemon.entity';
 
 import { CreatePokemonDto } from './dto/create-pokemon.dto';
 import { UpdatePokemonDto } from './dto/update-pokemon.dto';
+import { PaginationDto } from 'src/common/dtos/pagination.dto';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class PokemonService {
@@ -13,8 +15,11 @@ export class PokemonService {
     
     @InjectModel( Pokemon.name )
     private readonly pokemonModel: Model<Pokemon>,
+    private readonly configService:ConfigService
 
-  ) {}
+  ) {
+    // console.log(configService.get('port'),'service') // Para obtener valores del process.env
+  }
 
 
   async create(createPokemonDto: CreatePokemonDto) {
@@ -30,10 +35,38 @@ export class PokemonService {
 
   }
 
+  async findLimit(pagination:PaginationDto){
+    const {limit=10,offset=0} = pagination;
+    let pokemons:Pokemon[];
+    try {
+      pokemons = await this.pokemonModel.find()
+      .limit(limit)
+      .skip(offset)
+      .sort({ no:1}) // ordenar de forma ascendente seria con el 1 y -1 para descendente 
+      .select('-__v')
+      if(pokemons.length === 0){
+        return 'No pokemon available'
+      }
+      return pokemons
+    } catch (error) {
+      
+    }
+    // con el - se quita una propiedad que no quiero que llegue del consumo ejemplo __v
+  }
 
-
-  findAll() {
-    return `This action returns all pokemon`;
+  async findAll() {
+    let pokemons:Pokemon[];
+    try {
+      pokemons = await this.pokemonModel.find()
+      .select('-__v');
+      if(pokemons.length === 0){
+        return 'No pokemon available'
+      }
+      return pokemons;
+    } catch (error) {
+      this.handleExceptions( error );
+    }
+   
   }
 
   async findOne(term: string) {
@@ -94,7 +127,6 @@ export class PokemonService {
     if ( error.code === 11000 ) {
       throw new BadRequestException(`Pokemon exists in db ${ JSON.stringify( error.keyValue ) }`);
     }
-    console.log(error);
     throw new InternalServerErrorException(`Can't create Pokemon - Check server logs`);
   }
 
